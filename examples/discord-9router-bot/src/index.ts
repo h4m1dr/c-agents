@@ -5,7 +5,7 @@ import { createChatSdkState } from "agents/chat-sdk";
 import { ThinkMessengerStateAgent } from "@cloudflare/think/messengers";
 import { Chat } from "chat";
 import type { Thread } from "chat";
-import { generateText, jsonSchema, tool } from "ai";
+import { generateText, isStepCount, jsonSchema, tool } from "ai";
 import type { ToolSet } from "ai";
 import { routeMessageToDepartment } from "./router";
 import type { AgentTool, Department } from "./types";
@@ -56,7 +56,13 @@ function toModelTools(department: Department): ToolSet | undefined {
             typeof jsonSchema
           >[0]
         ),
-        execute: agentTool.execute
+        execute: async (args) => {
+          try {
+            return await agentTool.execute(args);
+          } catch (error) {
+            return `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`;
+          }
+        }
       })
     ])
   );
@@ -126,16 +132,13 @@ export class DiscordBotAgent extends Agent<Env> {
         model: router(this.env, settings.baseUrl).chat(settings.model),
         system: department.systemPrompt,
         prompt: cleanedMessage,
+        stopWhen: isStepCount(5),
         ...(department.tools.length > 0
           ? { tools: toModelTools(department), toolChoice: "auto" as const }
           : {})
       });
       if (result.toolCalls.length > 0) {
-        console.log("Tool calls detected:", result.toolCalls);
-        await thread.post(
-          "[System: Tool call requested by LLM, execution pending Phase 5]"
-        );
-        return;
+        console.log("Tool calls executed:", result.toolCalls);
       }
       await thread.post(result.text || "پاسخ متنی دریافت نشد.");
     } catch (error) {

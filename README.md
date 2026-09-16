@@ -45,9 +45,12 @@ Discord -> Cloudflare Worker -> Durable Object -> 9Router -> Discord
 - ساخت دپارتمان‌های `Researcher`، `DevOps` و `Admin` با ابزارهای اختصاصی
 - routing صریح با `/research`، `/devops` و `/admin` همراه با حذف prefix از prompt
 - fallback خودکار پیام‌های بدون prefix به دپارتمان Admin
+- اجرای خودکار tool-calling با حداکثر ۵ مرحله برای جلوگیری از loop بی‌نهایت
+- برگرداندن خطای اجرای ابزار به مدل به‌صورت متن و ارسال پاسخ نهایی به Discord
 
 در این مرحله routing بر اساس prefix انجام می‌شود؛ routing هوشمند مبتنی بر مدل و
-orchestration چندمرحله‌ای هنوز در فازهای بعدی قرار دارند.
+deferred Discord interaction برای پاسخ‌های بسیار طولانی هنوز در فازهای بعدی
+قرار دارند.
 
 ## Deploy سریع
 

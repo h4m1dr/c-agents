@@ -22,9 +22,12 @@ Phase 1 of the multi-agent architecture is complete:
 - `/research`, `/devops`, and `/admin` select a department explicitly.
 - The selected prefix is removed before the prompt is sent to the model.
 - Messages without a prefix fall back to the Admin department.
+- The AI SDK executes tool calls for up to five steps and preserves the tool
+	conversation context between steps.
+- Tool execution failures are returned to the model as text so it can recover.
 
 The current router is prefix-based. Model-based smart routing and a durable
-multi-step tool loop are planned for later phases.
+storage-backed department memory are planned for later phases.
 
 ## Deploy
 
