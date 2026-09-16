@@ -1,0 +1,27 @@
+{
+  "name": "@cloudflare/discord-9router-bot",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite dev",
+    "deploy": "vite build && wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types env.d.ts --include-runtime false"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.0",
+    "@chat-adapter/discord": "^4.40.0",
+    "@cloudflare/think": "workspace:*",
+    "agents": "workspace:*",
+    "ai": "^7.0.0",
+    "chat": "4.40.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.48.0",
+    "@cloudflare/workers-types": "^5.20260729.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0",
+    "wrangler": "^4.115.0"
+  }
+}

@@ -140,6 +140,14 @@ The agent is a Durable Object, so it needs a binding and a SQLite migration in `
 
 ## Examples
 
+### Deploy the Discord 9Router bot
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hrstorage9762/agents/tree/main/examples/discord-9router-bot)
+
+The standalone [`discord-9router-bot`](examples/discord-9router-bot) example
+connects a Discord bot to an OpenAI-compatible 9Router endpoint. Configure the
+Discord credentials and 9Router values as Cloudflare secrets after deployment.
+
 The [`examples/`](examples) directory has 30+ self-contained demos. A non-exhaustive tour:
 
 - **Showcase** — [`playground/`](examples/playground) is the kitchen-sink app: state, callable methods, scheduling, chat, tools, MCP, workflows, email, voice — all in one UI
