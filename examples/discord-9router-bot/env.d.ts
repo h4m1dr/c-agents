@@ -8,6 +8,8 @@ interface Env {
   NINE_ROUTER_BASE_URL: string;
   NINE_ROUTER_MODEL: string;
   NINE_ROUTER_ALLOWED_MODELS?: string;
+  GITHUB_PAT: string;
+  TAVILY_API_KEY: string;
   DiscordBotAgent: DurableObjectNamespace<
     import("./src/index").DiscordBotAgent
   >;

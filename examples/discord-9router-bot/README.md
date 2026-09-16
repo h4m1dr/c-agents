@@ -14,10 +14,15 @@ Phase 1 of the multi-agent architecture is complete:
 - Department system prompts are passed to the model.
 - Tool schemas are added to the AI SDK request only when a department has tools.
 - Tool calls are detected and logged, with a temporary Discord response until
-	the Phase 5 execution loop is implemented.
+  the Phase 5 execution loop is implemented.
+- `execute_code_sandbox` calls the public Piston API.
+- `read_github_file` reads and UTF-8 decodes GitHub repository files.
+- `search_web` calls Tavily and returns an answer or serialized results.
+- All tools use native Workers `fetch` and return failures as strings.
 
-The registry is intentionally empty in this version. Web search, code sandbox,
-GitHub tools, smart routing, and tool execution are planned for later phases.
+The tools are registered for the current General department. Smart routing,
+specialized Researcher/DevOps departments, and a durable multi-step tool loop
+are planned for later phases.
 
 ## Deploy
 
@@ -35,6 +40,8 @@ wrangler secret put NINE_ROUTER_ADMIN_TOKEN
 wrangler secret put NINE_ROUTER_BASE_URL
 wrangler secret put NINE_ROUTER_MODEL
 wrangler secret put NINE_ROUTER_ALLOWED_MODELS
+wrangler secret put GITHUB_PAT
+wrangler secret put TAVILY_API_KEY
 ```
 
 `NINE_ROUTER_BASE_URL` should include `/v1`, for example `https://9r.ykno.ir/v1`. The model endpoint is available at `/api/models` and requires the admin token. The active model must be included in the allowlist.

@@ -39,8 +39,13 @@ Discord -> Cloudflare Worker -> Durable Object -> 9Router -> Discord
 - ارسال conditional ابزارها به AI SDK فقط وقتی دپارتمان ابزار داشته باشد
 - فعال‌سازی `toolChoice: "auto"` برای دپارتمان‌های دارای ابزار
 - تشخیص ایمن `toolCalls` و ارسال پیام موقت تا زمان اجرای فاز ۵
+- ساخت ابزار Piston برای اجرای کد، GitHub برای خواندن فایل و Tavily برای جست‌وجو
+- استفاده از `fetch` بومی Workers و برگرداندن خطاهای ابزار به‌صورت متن
+- تزریق امن `Env` به registry برای دسترسی به کلیدهای GitHub و Tavily
 
-در v0.2 هنوز ابزارهای واقعی، routing هوشمند و اجرای حلقه‌ی ابزارها فعال نشده‌اند.
+در این مرحله ابزارها ساخته و در registry ثبت شده‌اند، اما routing هوشمند،
+دپارتمان‌های Researcher/DevOps و orchestration چندمرحله‌ای هنوز در فازهای بعدی
+قرار دارند.
 
 ## Deploy سریع
 
@@ -55,6 +60,8 @@ wrangler secret put NINE_ROUTER_ADMIN_TOKEN
 wrangler secret put NINE_ROUTER_BASE_URL
 wrangler secret put NINE_ROUTER_MODEL
 wrangler secret put NINE_ROUTER_ALLOWED_MODELS
+wrangler secret put GITHUB_PAT
+wrangler secret put TAVILY_API_KEY
 ```
 
 مقدارهای اصلی:
@@ -147,23 +154,24 @@ pnpm run deploy
 
 ## ساختار پروژه
 
-| مسیر                                                                                         | کاربرد                                  |
-| -------------------------------------------------------------------------------------------- | --------------------------------------- |
-| [`examples/discord-9router-bot`](examples/discord-9router-bot)                               | Worker اصلی بات Discord و 9Router       |
-| [`examples/discord-9router-bot/src/index.ts`](examples/discord-9router-bot/src/index.ts)     | webhook، Durable Object و مدیریت مدل    |
-| [`examples/discord-9router-bot/wrangler.jsonc`](examples/discord-9router-bot/wrangler.jsonc) | تنظیمات deploy و migration SQLite       |
-| [`examples/discord-9router-bot/.env.example`](examples/discord-9router-bot/.env.example)     | نمونه‌ی متغیرهای محلی بدون secret واقعی |
-| [`packages/agents`](packages/agents)                                                         | هسته‌ی Agents SDK مورد استفاده‌ی Worker |
-| [`packages/think`](packages/think)                                                           | لایه‌ی Think و messenger state          |
-| [`examples/discord-9router-bot/src/types.ts`](examples/discord-9router-bot/src/types.ts)     | قراردادهای type-safe فاز چندعاملی       |
-| [`examples/discord-9router-bot/src/tools`](examples/discord-9router-bot/src/tools)            | registry ابزارها                        |
+| مسیر                                                                                           | کاربرد                                  |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------- |
+| [`examples/discord-9router-bot`](examples/discord-9router-bot)                                 | Worker اصلی بات Discord و 9Router       |
+| [`examples/discord-9router-bot/src/index.ts`](examples/discord-9router-bot/src/index.ts)       | webhook، Durable Object و مدیریت مدل    |
+| [`examples/discord-9router-bot/wrangler.jsonc`](examples/discord-9router-bot/wrangler.jsonc)   | تنظیمات deploy و migration SQLite       |
+| [`examples/discord-9router-bot/.env.example`](examples/discord-9router-bot/.env.example)       | نمونه‌ی متغیرهای محلی بدون secret واقعی |
+| [`packages/agents`](packages/agents)                                                           | هسته‌ی Agents SDK مورد استفاده‌ی Worker |
+| [`packages/think`](packages/think)                                                             | لایه‌ی Think و messenger state          |
+| [`examples/discord-9router-bot/src/types.ts`](examples/discord-9router-bot/src/types.ts)       | قراردادهای type-safe فاز چندعاملی       |
+| [`examples/discord-9router-bot/src/tools`](examples/discord-9router-bot/src/tools)             | registry ابزارها                        |
 | [`examples/discord-9router-bot/src/departments`](examples/discord-9router-bot/src/departments) | دپارتمان‌ها و personaها                 |
-| [`examples/discord-9router-bot/src/router`](examples/discord-9router-bot/src/router)          | مسیریاب پایه‌ی پیام‌ها                  |
+| [`examples/discord-9router-bot/src/router`](examples/discord-9router-bot/src/router)           | مسیریاب پایه‌ی پیام‌ها                  |
 
 ## امنیت
 
 - توکن 9Router که قبلاً در گفتگو منتشر شده باید revoke و rotate شود.
 - `NINE_ROUTER_API_KEY` و `NINE_ROUTER_ADMIN_TOKEN` فقط به‌صورت secret تنظیم شوند.
+- `GITHUB_PAT` و `TAVILY_API_KEY` فقط در صورت نیاز به ابزارهای مربوطه تنظیم شوند.
 - endpointهای `/api/models` و `/api/models/config` بدون توکن مدیریتی پاسخ نمی‌دهند.
 - توکن مدیریتی را در URL قرار ندهید؛ فقط از header `Authorization` استفاده کنید.
 

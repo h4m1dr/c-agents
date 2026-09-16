@@ -112,7 +112,7 @@ export class DiscordBotAgent extends Agent<Env> {
     }
 
     const settings = this.readModelSettings();
-    const department = getDepartmentForMessage(text);
+    const department = getDepartmentForMessage(text, this.env);
     if (!settings.allowedModels.includes(settings.model)) {
       await thread.post("مدل فعال در فهرست مدل‌های مجاز نیست.");
       return;
