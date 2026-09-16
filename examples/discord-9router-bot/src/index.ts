@@ -7,7 +7,7 @@ import { Chat } from "chat";
 import type { Thread } from "chat";
 import { generateText, jsonSchema, tool } from "ai";
 import type { ToolSet } from "ai";
-import { getDepartmentForMessage } from "./router";
+import { routeMessageToDepartment } from "./router";
 import type { AgentTool, Department } from "./types";
 
 export { ThinkMessengerStateAgent };
@@ -112,7 +112,10 @@ export class DiscordBotAgent extends Agent<Env> {
     }
 
     const settings = this.readModelSettings();
-    const department = getDepartmentForMessage(text, this.env);
+    const { department, cleanedMessage } = routeMessageToDepartment(
+      text,
+      this.env
+    );
     if (!settings.allowedModels.includes(settings.model)) {
       await thread.post("مدل فعال در فهرست مدل‌های مجاز نیست.");
       return;
@@ -122,7 +125,7 @@ export class DiscordBotAgent extends Agent<Env> {
       const result = await generateText({
         model: router(this.env, settings.baseUrl).chat(settings.model),
         system: department.systemPrompt,
-        prompt: text,
+        prompt: cleanedMessage,
         ...(department.tools.length > 0
           ? { tools: toModelTools(department), toolChoice: "auto" as const }
           : {})

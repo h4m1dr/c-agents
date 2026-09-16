@@ -19,10 +19,12 @@ Phase 1 of the multi-agent architecture is complete:
 - `read_github_file` reads and UTF-8 decodes GitHub repository files.
 - `search_web` calls Tavily and returns an answer or serialized results.
 - All tools use native Workers `fetch` and return failures as strings.
+- `/research`, `/devops`, and `/admin` select a department explicitly.
+- The selected prefix is removed before the prompt is sent to the model.
+- Messages without a prefix fall back to the Admin department.
 
-The tools are registered for the current General department. Smart routing,
-specialized Researcher/DevOps departments, and a durable multi-step tool loop
-are planned for later phases.
+The current router is prefix-based. Model-based smart routing and a durable
+multi-step tool loop are planned for later phases.
 
 ## Deploy
 

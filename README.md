@@ -42,10 +42,12 @@ Discord -> Cloudflare Worker -> Durable Object -> 9Router -> Discord
 - ساخت ابزار Piston برای اجرای کد، GitHub برای خواندن فایل و Tavily برای جست‌وجو
 - استفاده از `fetch` بومی Workers و برگرداندن خطاهای ابزار به‌صورت متن
 - تزریق امن `Env` به registry برای دسترسی به کلیدهای GitHub و Tavily
+- ساخت دپارتمان‌های `Researcher`، `DevOps` و `Admin` با ابزارهای اختصاصی
+- routing صریح با `/research`، `/devops` و `/admin` همراه با حذف prefix از prompt
+- fallback خودکار پیام‌های بدون prefix به دپارتمان Admin
 
-در این مرحله ابزارها ساخته و در registry ثبت شده‌اند، اما routing هوشمند،
-دپارتمان‌های Researcher/DevOps و orchestration چندمرحله‌ای هنوز در فازهای بعدی
-قرار دارند.
+در این مرحله routing بر اساس prefix انجام می‌شود؛ routing هوشمند مبتنی بر مدل و
+orchestration چندمرحله‌ای هنوز در فازهای بعدی قرار دارند.
 
 ## Deploy سریع
 
