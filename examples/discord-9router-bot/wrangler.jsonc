@@ -4,6 +4,11 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-06-11",
   "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "NINE_ROUTER_BASE_URL": "https://9r.ykno.ir/v1",
+    "NINE_ROUTER_MODEL": "GPT",
+    "NINE_ROUTER_ALLOWED_MODELS": "GPT"
+  },
   "durable_objects": {
     "bindings": [
       { "name": "DiscordBotAgent", "class_name": "DiscordBotAgent" }

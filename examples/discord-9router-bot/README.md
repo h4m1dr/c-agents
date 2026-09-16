@@ -4,6 +4,24 @@ A Cloudflare Worker bot built with Agents SDK, Chat SDK, Discord, and an OpenAI-
 
 Current project version: `v0.2`
 
+## Security and production telemetry
+
+- Discord request signatures are verified by the official adapter using
+	`DISCORD_PUBLIC_KEY`; invalid or missing signatures are rejected before the
+	bot handlers run.
+- `/api/models` and `/api/models/config` require the exact
+	`Authorization: Bearer $NINE_ROUTER_ADMIN_TOKEN` header.
+- `wrangler tail` shows routing, model completion, and tool success/failure
+	logs without logging API keys or message contents.
+- Non-sensitive model defaults are declared in `wrangler.jsonc`. Secrets must
+	still be set with `wrangler secret put` and must not be placed in `vars`.
+
+View production logs with:
+
+```bash
+wrangler tail discord-9router-bot
+```
+
 ## Implemented in v0.2
 
 Phases 1 through 5 are partially implemented:
@@ -25,9 +43,9 @@ Phases 1 through 5 are partially implemented:
   conversation context between steps.
 - Tool execution failures are returned to the model as text so it can recover.
 - User messages, assistant tool calls, tool results, and final responses are
-	persisted in the Durable Object SQLite database.
+  persisted in the Durable Object SQLite database.
 - Recent conversation events are reused as memory for the next message in the
-	same Discord thread.
+  same Discord thread.
 
 The current router is prefix-based. Model-based smart routing is planned for a
 later phase. The official Discord Chat SDK adapter handles the initial webhook
@@ -47,14 +65,14 @@ wrangler secret put DISCORD_PUBLIC_KEY
 wrangler secret put DISCORD_APPLICATION_ID
 wrangler secret put NINE_ROUTER_API_KEY
 wrangler secret put NINE_ROUTER_ADMIN_TOKEN
-wrangler secret put NINE_ROUTER_BASE_URL
-wrangler secret put NINE_ROUTER_MODEL
-wrangler secret put NINE_ROUTER_ALLOWED_MODELS
 wrangler secret put GITHUB_PAT
 wrangler secret put TAVILY_API_KEY
 ```
 
-`NINE_ROUTER_BASE_URL` should include `/v1`, for example `https://9r.ykno.ir/v1`. The model endpoint is available at `/api/models` and requires the admin token. The active model must be included in the allowlist.
+`NINE_ROUTER_BASE_URL`, `NINE_ROUTER_MODEL`, and `NINE_ROUTER_ALLOWED_MODELS`
+are non-secret defaults in `wrangler.jsonc` and can be changed there. The model
+endpoint is available at `/api/models` and requires the admin token. The active
+model must be included in the allowlist.
 
 List models and update the active allowlist:
 

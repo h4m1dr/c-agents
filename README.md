@@ -49,6 +49,8 @@ Discord -> Cloudflare Worker -> Durable Object -> 9Router -> Discord
 - برگرداندن خطای اجرای ابزار به مدل به‌صورت متن و ارسال پاسخ نهایی به Discord
 - ذخیره‌ی transcript پیام‌ها، tool callها و tool resultها در SQLite Durable Object
 - استفاده‌ی دوباره از conversation memory در پیام‌های بعدی همان thread
+- تأیید امضای Discord با `DISCORD_PUBLIC_KEY` از طریق آداپتر رسمی
+- احراز Bearer token برای endpointهای مدیریتی و لاگ ساختاریافته برای `wrangler tail`
 
 در این مرحله routing بر اساس prefix انجام می‌شود؛ routing هوشمند مبتنی بر مدل و
 deferred Discord interaction سفارشی برای پاسخ‌های بسیار طولانی هنوز در فازهای
@@ -65,9 +67,6 @@ wrangler secret put DISCORD_PUBLIC_KEY
 wrangler secret put DISCORD_APPLICATION_ID
 wrangler secret put NINE_ROUTER_API_KEY
 wrangler secret put NINE_ROUTER_ADMIN_TOKEN
-wrangler secret put NINE_ROUTER_BASE_URL
-wrangler secret put NINE_ROUTER_MODEL
-wrangler secret put NINE_ROUTER_ALLOWED_MODELS
 wrangler secret put GITHUB_PAT
 wrangler secret put TAVILY_API_KEY
 ```
@@ -79,6 +78,9 @@ NINE_ROUTER_BASE_URL=https://9r.ykno.ir/v1
 NINE_ROUTER_MODEL=GPT
 NINE_ROUTER_ALLOWED_MODELS=GPT
 ```
+
+این سه مقدار غیرحساس در `wrangler.jsonc` تعریف شده‌اند؛ کلیدها و tokenها فقط
+با `wrangler secret put` تنظیم شوند.
 
 کلیدها و توکن‌های واقعی نباید داخل Git، README یا فایل‌های `.env` commit شوند. برای توسعه‌ی محلی از `.dev.vars` استفاده کنید.
 

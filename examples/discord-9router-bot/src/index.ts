@@ -14,6 +14,10 @@ export { ThinkMessengerStateAgent };
 
 const DISCORD_WEBHOOK_PATH = "/api/webhooks/discord";
 
+function logError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function json(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value, null, 2), {
     status,
@@ -63,10 +67,17 @@ function toModelTools(department: Department): ToolSet | undefined {
           >[0]
         ),
         execute: async (args) => {
+          const toolName = agentTool.schema.function.name;
+          console.log(`[ToolExecution] Starting ${toolName}`);
           try {
-            return await agentTool.execute(args);
+            const output = await agentTool.execute(args);
+            console.log(
+              `[ToolExecution] Success ${toolName}; result length: ${output.length}`
+            );
+            return output;
           } catch (error) {
-            return `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`;
+            console.error(`[ToolExecution] Failure ${toolName}`, error);
+            return `Tool execution failed: ${logError(error)}`;
           }
         }
       })
@@ -139,6 +150,7 @@ export class DiscordBotAgent extends Agent<Env> {
       text,
       this.env
     );
+    console.log(`[Router] Message routed to department: ${department.id}`);
     if (!settings.allowedModels.includes(settings.model)) {
       await thread.post("مدل فعال در فهرست مدل‌های مجاز نیست.");
       return;
@@ -148,7 +160,10 @@ export class DiscordBotAgent extends Agent<Env> {
       const previousEvents = this.readConversationEvents(thread.id);
       const memory = previousEvents
         .slice(-20)
-        .map((event) => `${event.role}${event.name ? ` (${event.name})` : ""}: ${event.content}`)
+        .map(
+          (event) =>
+            `${event.role}${event.name ? ` (${event.name})` : ""}: ${event.content}`
+        )
         .join("\n");
       const result = await generateText({
         model: router(this.env, settings.baseUrl).chat(settings.model),
@@ -161,13 +176,17 @@ export class DiscordBotAgent extends Agent<Env> {
           ? { tools: toModelTools(department), toolChoice: "auto" as const }
           : {})
       });
+      console.log(
+        `[LLM] Completed model request; finish reason: ${result.finishReason}`
+      );
       if (result.toolCalls.length > 0) {
         console.log("Tool calls executed:", result.toolCalls);
       }
       this.persistConversationEvents(thread.id, cleanedMessage, result);
       await thread.post(result.text || "پاسخ متنی دریافت نشد.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      console.error("[LLM] Request failed", error);
+      const message = logError(error);
       await thread.post(`خطا در اتصال به مدل: ${message.slice(0, 500)}`);
     }
   }
@@ -209,7 +228,8 @@ export class DiscordBotAgent extends Agent<Env> {
       })),
       { role: "assistant", content: result.text }
     ];
-    const existing = this.sql<{ next_sequence: number }>`
+    const existing =
+      this.sql<{ next_sequence: number }>`
       SELECT COALESCE(MAX(sequence), -1) + 1 AS next_sequence
       FROM conversation_events
       WHERE thread_id = ${threadId}
