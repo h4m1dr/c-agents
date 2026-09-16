@@ -47,10 +47,13 @@ Discord -> Cloudflare Worker -> Durable Object -> 9Router -> Discord
 - fallback خودکار پیام‌های بدون prefix به دپارتمان Admin
 - اجرای خودکار tool-calling با حداکثر ۵ مرحله برای جلوگیری از loop بی‌نهایت
 - برگرداندن خطای اجرای ابزار به مدل به‌صورت متن و ارسال پاسخ نهایی به Discord
+- ذخیره‌ی transcript پیام‌ها، tool callها و tool resultها در SQLite Durable Object
+- استفاده‌ی دوباره از conversation memory در پیام‌های بعدی همان thread
 
 در این مرحله routing بر اساس prefix انجام می‌شود؛ routing هوشمند مبتنی بر مدل و
-deferred Discord interaction برای پاسخ‌های بسیار طولانی هنوز در فازهای بعدی
-قرار دارند.
+deferred Discord interaction سفارشی برای پاسخ‌های بسیار طولانی هنوز در فازهای
+بعدی قرار دارد. آداپتر رسمی Discord/Chat SDK lifecycle webhook و `waitUntil`
+را مدیریت می‌کند تا پردازش پس‌زمینه بعد از پاسخ اولیه ادامه پیدا کند.
 
 ## Deploy سریع
 

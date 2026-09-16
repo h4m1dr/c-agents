@@ -6,15 +6,14 @@ Current project version: `v0.2`
 
 ## Implemented in v0.2
 
-Phase 1 of the multi-agent architecture is complete:
+Phases 1 through 5 are partially implemented:
 
 - `src/tools/` is the central tool registry location.
 - `src/departments/` contains the initial `General` department.
 - `src/router/` contains the default department resolver.
 - Department system prompts are passed to the model.
 - Tool schemas are added to the AI SDK request only when a department has tools.
-- Tool calls are detected and logged, with a temporary Discord response until
-  the Phase 5 execution loop is implemented.
+- Tool calls are executed through the AI SDK's bounded loop.
 - `execute_code_sandbox` calls the public Piston API.
 - `read_github_file` reads and UTF-8 decodes GitHub repository files.
 - `search_web` calls Tavily and returns an answer or serialized results.
@@ -23,11 +22,17 @@ Phase 1 of the multi-agent architecture is complete:
 - The selected prefix is removed before the prompt is sent to the model.
 - Messages without a prefix fall back to the Admin department.
 - The AI SDK executes tool calls for up to five steps and preserves the tool
-	conversation context between steps.
+  conversation context between steps.
 - Tool execution failures are returned to the model as text so it can recover.
+- User messages, assistant tool calls, tool results, and final responses are
+	persisted in the Durable Object SQLite database.
+- Recent conversation events are reused as memory for the next message in the
+	same Discord thread.
 
-The current router is prefix-based. Model-based smart routing and a durable
-storage-backed department memory are planned for later phases.
+The current router is prefix-based. Model-based smart routing is planned for a
+later phase. The official Discord Chat SDK adapter handles the initial webhook
+response and the Worker passes its `waitUntil` callback so background work can
+finish safely.
 
 ## Deploy
 

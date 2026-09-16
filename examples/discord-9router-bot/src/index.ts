@@ -34,6 +34,12 @@ type ModelSettings = {
   allowedModels: string[];
 };
 
+type ConversationEvent = {
+  role: "user" | "assistant" | "tool";
+  content: string;
+  name?: string;
+};
+
 function router(env: Env, baseUrl: string) {
   return createOpenAI({
     apiKey: env.NINE_ROUTER_API_KEY,
@@ -82,6 +88,17 @@ export class DiscordBotAgent extends Agent<Env> {
         updated_at INTEGER NOT NULL
       )
     `;
+    this.sql`
+      CREATE TABLE IF NOT EXISTS conversation_events (
+        thread_id TEXT NOT NULL,
+        sequence INTEGER NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        name TEXT,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (thread_id, sequence)
+      )
+    `;
     try {
       const discord = createDiscordAdapter({
         botToken: this.env.DISCORD_BOT_TOKEN,
@@ -128,10 +145,17 @@ export class DiscordBotAgent extends Agent<Env> {
     }
 
     try {
+      const previousEvents = this.readConversationEvents(thread.id);
+      const memory = previousEvents
+        .slice(-20)
+        .map((event) => `${event.role}${event.name ? ` (${event.name})` : ""}: ${event.content}`)
+        .join("\n");
       const result = await generateText({
         model: router(this.env, settings.baseUrl).chat(settings.model),
         system: department.systemPrompt,
-        prompt: cleanedMessage,
+        prompt: memory
+          ? `Conversation memory:\n${memory}\n\nLatest user message:\n${cleanedMessage}`
+          : cleanedMessage,
         stopWhen: isStepCount(5),
         ...(department.tools.length > 0
           ? { tools: toModelTools(department), toolChoice: "auto" as const }
@@ -140,11 +164,65 @@ export class DiscordBotAgent extends Agent<Env> {
       if (result.toolCalls.length > 0) {
         console.log("Tool calls executed:", result.toolCalls);
       }
+      this.persistConversationEvents(thread.id, cleanedMessage, result);
       await thread.post(result.text || "پاسخ متنی دریافت نشد.");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await thread.post(`خطا در اتصال به مدل: ${message.slice(0, 500)}`);
     }
+  }
+
+  private readConversationEvents(threadId: string): ConversationEvent[] {
+    const rows = this.sql<{
+      role: ConversationEvent["role"];
+      content: string;
+      name: string | null;
+    }>`
+      SELECT role, content, name
+      FROM conversation_events
+      WHERE thread_id = ${threadId}
+      ORDER BY sequence ASC
+    `;
+    return rows.map((row) => ({
+      role: row.role,
+      content: row.content,
+      ...(row.name ? { name: row.name } : {})
+    }));
+  }
+
+  private persistConversationEvents(
+    threadId: string,
+    userMessage: string,
+    result: Awaited<ReturnType<typeof generateText>>
+  ): void {
+    const events: ConversationEvent[] = [
+      { role: "user", content: userMessage },
+      ...result.toolCalls.map((call) => ({
+        role: "assistant" as const,
+        content: JSON.stringify(call),
+        name: call.toolName
+      })),
+      ...result.toolResults.map((toolResult) => ({
+        role: "tool" as const,
+        content: JSON.stringify(toolResult.output) ?? String(toolResult.output),
+        name: toolResult.toolName
+      })),
+      { role: "assistant", content: result.text }
+    ];
+    const existing = this.sql<{ next_sequence: number }>`
+      SELECT COALESCE(MAX(sequence), -1) + 1 AS next_sequence
+      FROM conversation_events
+      WHERE thread_id = ${threadId}
+    `[0]?.next_sequence ?? 0;
+    events.forEach((event, index) => {
+      this.sql`
+        INSERT INTO conversation_events
+          (thread_id, sequence, role, content, name, created_at)
+        VALUES
+          (${threadId}, ${existing + index}, ${event.role}, ${event.content},
+           ${event.name ?? null}, ${Date.now()})
+      `;
+    });
   }
 
   async onRequest(request: Request): Promise<Response> {
