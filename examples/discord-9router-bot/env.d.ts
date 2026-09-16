@@ -4,6 +4,7 @@ interface Env {
   DISCORD_PUBLIC_KEY: string;
   DISCORD_APPLICATION_ID: string;
   NINE_ROUTER_API_KEY: string;
+  NINE_ROUTER_ADMIN_TOKEN: string;
   NINE_ROUTER_BASE_URL: string;
   NINE_ROUTER_MODEL: string;
   NINE_ROUTER_ALLOWED_MODELS?: string;

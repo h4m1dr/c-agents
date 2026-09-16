@@ -25,10 +25,16 @@ function configuredModels(env: Env): string[] {
     .filter(Boolean);
 }
 
-function router(env: Env) {
+type ModelSettings = {
+  baseUrl: string;
+  model: string;
+  allowedModels: string[];
+};
+
+function router(env: Env, baseUrl: string) {
   return createOpenAI({
     apiKey: env.NINE_ROUTER_API_KEY,
-    baseURL: env.NINE_ROUTER_BASE_URL
+    baseURL: baseUrl
   });
 }
 
@@ -37,6 +43,15 @@ export class DiscordBotAgent extends Agent<Env> {
   private startupError?: Error;
 
   onStart(): void {
+    this.sql`
+      CREATE TABLE IF NOT EXISTS model_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        base_url TEXT NOT NULL,
+        model TEXT NOT NULL,
+        allowed_models TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `;
     try {
       const discord = createDiscordAdapter({
         botToken: this.env.DISCORD_BOT_TOKEN,
@@ -71,15 +86,15 @@ export class DiscordBotAgent extends Agent<Env> {
       return;
     }
 
-    const modelName = this.env.NINE_ROUTER_MODEL;
-    if (!configuredModels(this.env).includes(modelName)) {
+    const settings = this.readModelSettings();
+    if (!settings.allowedModels.includes(settings.model)) {
       await thread.post("مدل فعال در فهرست مدل‌های مجاز نیست.");
       return;
     }
 
     try {
       const result = await generateText({
-        model: router(this.env).chat(modelName),
+        model: router(this.env, settings.baseUrl).chat(settings.model),
         system: "You are a helpful Persian-speaking assistant. Be concise.",
         prompt: text
       });
@@ -91,6 +106,13 @@ export class DiscordBotAgent extends Agent<Env> {
   }
 
   async onRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname === "/api/models" && request.method === "GET") {
+      return this.modelsResponse(request);
+    }
+    if (url.pathname === "/api/models/config" && request.method === "POST") {
+      return this.updateModelSettings(request);
+    }
     if (!this.bot) {
       return json({ error: this.startupError?.message ?? "Bot is not ready" }, 500);
     }
@@ -98,19 +120,84 @@ export class DiscordBotAgent extends Agent<Env> {
       waitUntil: (task: Promise<unknown>) => this.ctx.waitUntil(task)
     });
   }
-}
 
-async function listModels(env: Env): Promise<Response> {
-  const response = await fetch(`${env.NINE_ROUTER_BASE_URL}/models`, {
-    headers: { Authorization: `Bearer ${env.NINE_ROUTER_API_KEY}` }
-  });
-  const body: unknown = await response.json();
-  return json({
-    ok: response.ok,
-    activeModel: env.NINE_ROUTER_MODEL,
-    allowedModels: configuredModels(env),
-    router: body
-  }, response.ok ? 200 : 502);
+  private readModelSettings(): ModelSettings {
+    const row = this.sql<{
+      base_url: string;
+      model: string;
+      allowed_models: string;
+    }>`
+      SELECT base_url, model, allowed_models
+      FROM model_settings
+      WHERE id = 1
+      LIMIT 1
+    `[0];
+    if (!row) {
+      return {
+        baseUrl: this.env.NINE_ROUTER_BASE_URL,
+        model: this.env.NINE_ROUTER_MODEL,
+        allowedModels: configuredModels(this.env)
+      };
+    }
+    return {
+      baseUrl: row.base_url,
+      model: row.model,
+      allowedModels: JSON.parse(row.allowed_models) as string[]
+    };
+  }
+
+  private isAdmin(request: Request): boolean {
+    return request.headers.get("authorization") ===
+      `Bearer ${this.env.NINE_ROUTER_ADMIN_TOKEN}`;
+  }
+
+  private async modelsResponse(request: Request): Promise<Response> {
+    if (!this.isAdmin(request)) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+    const settings = this.readModelSettings();
+    const response = await fetch(`${settings.baseUrl}/models`, {
+      headers: { Authorization: `Bearer ${this.env.NINE_ROUTER_API_KEY}` }
+    });
+    const body: unknown = await response.json();
+    return json({
+      ok: response.ok,
+      activeModel: settings.model,
+      allowedModels: settings.allowedModels,
+      baseUrl: settings.baseUrl,
+      router: body
+    }, response.ok ? 200 : 502);
+  }
+
+  private async updateModelSettings(request: Request): Promise<Response> {
+    if (!this.isAdmin(request)) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+    const body = await request.json() as {
+      baseUrl?: unknown;
+      model?: unknown;
+      allowedModels?: unknown;
+    };
+    const current = this.readModelSettings();
+    const baseUrl = typeof body.baseUrl === "string" ? body.baseUrl.trim() : current.baseUrl;
+    const model = typeof body.model === "string" ? body.model.trim() : current.model;
+    const allowedModels = Array.isArray(body.allowedModels)
+      ? body.allowedModels.filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean)
+      : current.allowedModels;
+    if (!baseUrl || !model || !allowedModels.includes(model)) {
+      return json({ error: "model must be included in allowedModels" }, 400);
+    }
+    this.sql`
+      INSERT INTO model_settings (id, base_url, model, allowed_models, updated_at)
+      VALUES (1, ${baseUrl}, ${model}, ${JSON.stringify(allowedModels)}, ${Date.now()})
+      ON CONFLICT(id) DO UPDATE SET
+        base_url = excluded.base_url,
+        model = excluded.model,
+        allowed_models = excluded.allowed_models,
+        updated_at = excluded.updated_at
+    `;
+    return json({ ok: true, settings: { baseUrl, model, allowedModels } });
+  }
 }
 
 export default {
@@ -121,15 +208,17 @@ export default {
         name: "Discord 9Router bot",
         discordWebhook: DISCORD_WEBHOOK_PATH,
         modelsEndpoint: "/api/models",
-        activeModel: env.NINE_ROUTER_MODEL
+        activeModel: env.NINE_ROUTER_MODEL,
+        modelConfigEndpoint: "/api/models/config"
       });
     }
     if (request.method === "GET" && url.pathname === "/api/models") {
-      try {
-        return await listModels(env);
-      } catch (error) {
-        return json({ error: error instanceof Error ? error.message : String(error) }, 502);
-      }
+      const agent = await getAgentByName(env.DiscordBotAgent, "default");
+      return agent.fetch(request);
+    }
+    if (request.method === "POST" && url.pathname === "/api/models/config") {
+      const agent = await getAgentByName(env.DiscordBotAgent, "default");
+      return agent.fetch(request);
     }
     if (request.method === "POST" && url.pathname === DISCORD_WEBHOOK_PATH) {
       const agent = await getAgentByName(env.DiscordBotAgent, "default");
