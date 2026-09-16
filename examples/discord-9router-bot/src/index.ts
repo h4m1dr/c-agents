@@ -5,7 +5,10 @@ import { createChatSdkState } from "agents/chat-sdk";
 import { ThinkMessengerStateAgent } from "@cloudflare/think/messengers";
 import { Chat } from "chat";
 import type { Thread } from "chat";
-import { generateText } from "ai";
+import { generateText, jsonSchema, tool } from "ai";
+import type { ToolSet } from "ai";
+import { getDepartmentForMessage } from "./router";
+import type { AgentTool, Department } from "./types";
 
 export { ThinkMessengerStateAgent };
 
@@ -38,6 +41,27 @@ function router(env: Env, baseUrl: string) {
   });
 }
 
+function toModelTools(department: Department): ToolSet | undefined {
+  if (department.tools.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    department.tools.map((agentTool: AgentTool) => [
+      agentTool.schema.function.name,
+      tool({
+        description: agentTool.schema.function.description,
+        inputSchema: jsonSchema<Record<string, unknown>>(
+          agentTool.schema.function.parameters as Parameters<
+            typeof jsonSchema
+          >[0]
+        ),
+        execute: agentTool.execute
+      })
+    ])
+  );
+}
+
 export class DiscordBotAgent extends Agent<Env> {
   private bot?: Chat;
   private startupError?: Error;
@@ -62,9 +86,9 @@ export class DiscordBotAgent extends Agent<Env> {
       this.bot = new Chat({
         userName,
         adapters: { discord },
-        state: createChatSdkState({ agent: ThinkMessengerStateAgent }) as unknown as ConstructorParameters<
-          typeof Chat
-        >[0]["state"],
+        state: createChatSdkState({
+          agent: ThinkMessengerStateAgent
+        }) as unknown as ConstructorParameters<typeof Chat>[0]["state"],
         concurrency: { strategy: "burst", debounceMs: 500 }
       });
 
@@ -76,7 +100,8 @@ export class DiscordBotAgent extends Agent<Env> {
         await this.reply(thread, message.text);
       });
     } catch (error) {
-      this.startupError = error instanceof Error ? error : new Error(String(error));
+      this.startupError =
+        error instanceof Error ? error : new Error(String(error));
     }
   }
 
@@ -87,6 +112,7 @@ export class DiscordBotAgent extends Agent<Env> {
     }
 
     const settings = this.readModelSettings();
+    const department = getDepartmentForMessage(text);
     if (!settings.allowedModels.includes(settings.model)) {
       await thread.post("مدل فعال در فهرست مدل‌های مجاز نیست.");
       return;
@@ -95,9 +121,19 @@ export class DiscordBotAgent extends Agent<Env> {
     try {
       const result = await generateText({
         model: router(this.env, settings.baseUrl).chat(settings.model),
-        system: "You are a helpful Persian-speaking assistant. Be concise.",
-        prompt: text
+        system: department.systemPrompt,
+        prompt: text,
+        ...(department.tools.length > 0
+          ? { tools: toModelTools(department), toolChoice: "auto" as const }
+          : {})
       });
+      if (result.toolCalls.length > 0) {
+        console.log("Tool calls detected:", result.toolCalls);
+        await thread.post(
+          "[System: Tool call requested by LLM, execution pending Phase 5]"
+        );
+        return;
+      }
       await thread.post(result.text || "پاسخ متنی دریافت نشد.");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -114,7 +150,10 @@ export class DiscordBotAgent extends Agent<Env> {
       return this.updateModelSettings(request);
     }
     if (!this.bot) {
-      return json({ error: this.startupError?.message ?? "Bot is not ready" }, 500);
+      return json(
+        { error: this.startupError?.message ?? "Bot is not ready" },
+        500
+      );
     }
     return this.bot.webhooks.discord(request, {
       waitUntil: (task: Promise<unknown>) => this.ctx.waitUntil(task)
@@ -147,8 +186,10 @@ export class DiscordBotAgent extends Agent<Env> {
   }
 
   private isAdmin(request: Request): boolean {
-    return request.headers.get("authorization") ===
-      `Bearer ${this.env.NINE_ROUTER_ADMIN_TOKEN}`;
+    return (
+      request.headers.get("authorization") ===
+      `Bearer ${this.env.NINE_ROUTER_ADMIN_TOKEN}`
+    );
   }
 
   private async modelsResponse(request: Request): Promise<Response> {
@@ -160,29 +201,37 @@ export class DiscordBotAgent extends Agent<Env> {
       headers: { Authorization: `Bearer ${this.env.NINE_ROUTER_API_KEY}` }
     });
     const body: unknown = await response.json();
-    return json({
-      ok: response.ok,
-      activeModel: settings.model,
-      allowedModels: settings.allowedModels,
-      baseUrl: settings.baseUrl,
-      router: body
-    }, response.ok ? 200 : 502);
+    return json(
+      {
+        ok: response.ok,
+        activeModel: settings.model,
+        allowedModels: settings.allowedModels,
+        baseUrl: settings.baseUrl,
+        router: body
+      },
+      response.ok ? 200 : 502
+    );
   }
 
   private async updateModelSettings(request: Request): Promise<Response> {
     if (!this.isAdmin(request)) {
       return json({ error: "Unauthorized" }, 401);
     }
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       baseUrl?: unknown;
       model?: unknown;
       allowedModels?: unknown;
     };
     const current = this.readModelSettings();
-    const baseUrl = typeof body.baseUrl === "string" ? body.baseUrl.trim() : current.baseUrl;
-    const model = typeof body.model === "string" ? body.model.trim() : current.model;
+    const baseUrl =
+      typeof body.baseUrl === "string" ? body.baseUrl.trim() : current.baseUrl;
+    const model =
+      typeof body.model === "string" ? body.model.trim() : current.model;
     const allowedModels = Array.isArray(body.allowedModels)
-      ? body.allowedModels.filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean)
+      ? body.allowedModels
+          .filter((value): value is string => typeof value === "string")
+          .map((value) => value.trim())
+          .filter(Boolean)
       : current.allowedModels;
     if (!baseUrl || !model || !allowedModels.includes(model)) {
       return json({ error: "model must be included in allowedModels" }, 400);
@@ -224,6 +273,9 @@ export default {
       const agent = await getAgentByName(env.DiscordBotAgent, "default");
       return agent.fetch(request);
     }
-    return (await routeAgentRequest(request, env)) ?? new Response("Not found", { status: 404 });
+    return (
+      (await routeAgentRequest(request, env)) ??
+      new Response("Not found", { status: 404 })
+    );
   }
 } satisfies ExportedHandler<Env>;

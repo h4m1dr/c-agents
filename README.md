@@ -129,14 +129,14 @@ pnpm run deploy
 
 ## ساختار پروژه
 
-| مسیر | کاربرد |
-| --- | --- |
-| [`examples/discord-9router-bot`](examples/discord-9router-bot) | Worker اصلی بات Discord و 9Router |
-| [`examples/discord-9router-bot/src/index.ts`](examples/discord-9router-bot/src/index.ts) | webhook، Durable Object و مدیریت مدل |
-| [`examples/discord-9router-bot/wrangler.jsonc`](examples/discord-9router-bot/wrangler.jsonc) | تنظیمات deploy و migration SQLite |
-| [`examples/discord-9router-bot/.env.example`](examples/discord-9router-bot/.env.example) | نمونه‌ی متغیرهای محلی بدون secret واقعی |
-| [`packages/agents`](packages/agents) | هسته‌ی Agents SDK مورد استفاده‌ی Worker |
-| [`packages/think`](packages/think) | لایه‌ی Think و messenger state |
+| مسیر                                                                                         | کاربرد                                  |
+| -------------------------------------------------------------------------------------------- | --------------------------------------- |
+| [`examples/discord-9router-bot`](examples/discord-9router-bot)                               | Worker اصلی بات Discord و 9Router       |
+| [`examples/discord-9router-bot/src/index.ts`](examples/discord-9router-bot/src/index.ts)     | webhook، Durable Object و مدیریت مدل    |
+| [`examples/discord-9router-bot/wrangler.jsonc`](examples/discord-9router-bot/wrangler.jsonc) | تنظیمات deploy و migration SQLite       |
+| [`examples/discord-9router-bot/.env.example`](examples/discord-9router-bot/.env.example)     | نمونه‌ی متغیرهای محلی بدون secret واقعی |
+| [`packages/agents`](packages/agents)                                                         | هسته‌ی Agents SDK مورد استفاده‌ی Worker |
+| [`packages/think`](packages/think)                                                           | لایه‌ی Think و messenger state          |
 
 ## امنیت
 

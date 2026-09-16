@@ -8,5 +8,7 @@ interface Env {
   NINE_ROUTER_BASE_URL: string;
   NINE_ROUTER_MODEL: string;
   NINE_ROUTER_ALLOWED_MODELS?: string;
-  DiscordBotAgent: DurableObjectNamespace<import("./src/index").DiscordBotAgent>;
+  DiscordBotAgent: DurableObjectNamespace<
+    import("./src/index").DiscordBotAgent
+  >;
 }
