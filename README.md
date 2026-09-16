@@ -2,6 +2,8 @@
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hrstorage9762/agents/tree/main/examples/discord-9router-bot)
 
+**نسخه‌ی پروژه: `v0.2`**
+
 این مخزن fork شخصی [Cloudflare Agents](https://github.com/cloudflare/agents) است که برای اجرای یک بات Discord روی Cloudflare Workers و اتصال آن به API سازگار با OpenAI در 9Router آماده‌سازی شده است.
 
 ## بات Discord و 9Router
@@ -23,6 +25,22 @@ Discord -> Cloudflare Worker -> Durable Object -> 9Router -> Discord
 - ذخیره‌ی تنظیمات مدل در SQLite Durable Object
 - احراز هویت endpointهای مدیریتی با توکن جداگانه
 - اجرای مستقیم روی Cloudflare Workers بدون سرور دائمی
+
+## آنچه در v0.2 اجرا شده
+
+فاز اول معماری چندعاملی در این نسخه انجام شده است:
+
+- ساخت پوشه‌های `src/tools`، `src/departments` و `src/router`
+- تعریف interfaceهای type-safe برای schema ابزار، ابزار اجرایی و دپارتمان
+- ایجاد Tool Registry خالی برای اضافه‌کردن ابزارهای آینده
+- ایجاد دپارتمان پیش‌فرض `General` با system prompt مستقل
+- ایجاد router پایه که فعلاً همه‌ی پیام‌ها را به `General` می‌فرستد
+- اتصال system prompt دپارتمان به درخواست مدل
+- ارسال conditional ابزارها به AI SDK فقط وقتی دپارتمان ابزار داشته باشد
+- فعال‌سازی `toolChoice: "auto"` برای دپارتمان‌های دارای ابزار
+- تشخیص ایمن `toolCalls` و ارسال پیام موقت تا زمان اجرای فاز ۵
+
+در v0.2 هنوز ابزارهای واقعی، routing هوشمند و اجرای حلقه‌ی ابزارها فعال نشده‌اند.
 
 ## Deploy سریع
 
@@ -137,6 +155,10 @@ pnpm run deploy
 | [`examples/discord-9router-bot/.env.example`](examples/discord-9router-bot/.env.example)     | نمونه‌ی متغیرهای محلی بدون secret واقعی |
 | [`packages/agents`](packages/agents)                                                         | هسته‌ی Agents SDK مورد استفاده‌ی Worker |
 | [`packages/think`](packages/think)                                                           | لایه‌ی Think و messenger state          |
+| [`examples/discord-9router-bot/src/types.ts`](examples/discord-9router-bot/src/types.ts)     | قراردادهای type-safe فاز چندعاملی       |
+| [`examples/discord-9router-bot/src/tools`](examples/discord-9router-bot/src/tools)            | registry ابزارها                        |
+| [`examples/discord-9router-bot/src/departments`](examples/discord-9router-bot/src/departments) | دپارتمان‌ها و personaها                 |
+| [`examples/discord-9router-bot/src/router`](examples/discord-9router-bot/src/router)          | مسیریاب پایه‌ی پیام‌ها                  |
 
 ## امنیت
 

@@ -2,6 +2,23 @@
 
 A Cloudflare Worker bot built with Agents SDK, Chat SDK, Discord, and an OpenAI-compatible 9Router endpoint.
 
+Current project version: `v0.2`
+
+## Implemented in v0.2
+
+Phase 1 of the multi-agent architecture is complete:
+
+- `src/tools/` is the central tool registry location.
+- `src/departments/` contains the initial `General` department.
+- `src/router/` contains the default department resolver.
+- Department system prompts are passed to the model.
+- Tool schemas are added to the AI SDK request only when a department has tools.
+- Tool calls are detected and logged, with a temporary Discord response until
+	the Phase 5 execution loop is implemented.
+
+The registry is intentionally empty in this version. Web search, code sandbox,
+GitHub tools, smart routing, and tool execution are planned for later phases.
+
 ## Deploy
 
 1. Create a Discord application and bot in the [Discord Developer Portal](https://discord.com/developers/applications).
