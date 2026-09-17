@@ -25,7 +25,8 @@ export function getDepartments(env: Env): Record<string, Department> {
         "You are a Senior Software Engineer and DevOps expert. Write code, test it in the sandbox, and interact with GitHub repositories. Think step-by-step before executing code.",
       tools: [
         byName.get("execute_code_sandbox"),
-        byName.get("read_github_file")
+        byName.get("read_github_file"),
+        byName.get("create_github_commit")
       ].filter(
         (agentTool): agentTool is NonNullable<typeof agentTool> =>
           agentTool !== undefined

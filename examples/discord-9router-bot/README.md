@@ -5,14 +5,14 @@ A Cloudflare Workers bot built with Agents SDK, Chat SDK, Durable Objects, Disco
 ## Implemented
 
 - Department routing with `/research`, `/devops`, and `/admin`
-- Tavily web search, Piston code execution, and GitHub file reading tools
+- Tavily web search, Piston code execution, GitHub file reading, and GitHub commit tools
 - AI SDK tool-calling loop bounded to five steps
-- SQLite Durable Object memory for recent conversation and tool events
+- SQLite Durable Object memory for raw AI SDK message history and tool events
 - Discord signature verification through the official adapter
 - Protected model administration endpoints
 - Structured logs for `wrangler tail`
 
-The current router is prefix-based. GitHub commit creation and model-driven smart routing are not implemented yet.
+The current router is prefix-based. Model-driven smart routing and arbitrary Git workflows are not implemented yet.
 
 ## Deploy
 

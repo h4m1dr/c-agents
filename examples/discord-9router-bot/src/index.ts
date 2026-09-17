@@ -7,6 +7,7 @@ import { Chat } from "chat";
 import type { Thread } from "chat";
 import { generateText, isStepCount, jsonSchema, tool } from "ai";
 import type { ToolSet } from "ai";
+import type { ModelMessage } from "ai";
 import { routeMessageToDepartment } from "./router";
 import type { AgentTool, Department } from "./types";
 
@@ -38,10 +39,8 @@ type ModelSettings = {
   allowedModels: string[];
 };
 
-type ConversationEvent = {
-  role: "user" | "assistant" | "tool";
-  content: string;
-  name?: string;
+type StoredConversation = {
+  messages: ModelMessage[];
 };
 
 function router(env: Env, baseUrl: string) {
@@ -100,14 +99,10 @@ export class DiscordBotAgent extends Agent<Env> {
       )
     `;
     this.sql`
-      CREATE TABLE IF NOT EXISTS conversation_events (
-        thread_id TEXT NOT NULL,
-        sequence INTEGER NOT NULL,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        name TEXT,
-        created_at INTEGER NOT NULL,
-        PRIMARY KEY (thread_id, sequence)
+      CREATE TABLE IF NOT EXISTS conversation_messages (
+        thread_id TEXT PRIMARY KEY,
+        messages_json TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
       )
     `;
     try {
@@ -157,20 +152,15 @@ export class DiscordBotAgent extends Agent<Env> {
     }
 
     try {
-      const previousEvents = this.readConversationEvents(thread.id);
-      const memory = previousEvents
-        .slice(-20)
-        .map(
-          (event) =>
-            `${event.role}${event.name ? ` (${event.name})` : ""}: ${event.content}`
-        )
-        .join("\n");
+      const stored = this.readStructuredConversation(thread.id);
+      const messages: ModelMessage[] = [
+        ...stored.messages,
+        { role: "user", content: cleanedMessage }
+      ];
       const result = await generateText({
         model: router(this.env, settings.baseUrl).chat(settings.model),
         system: department.systemPrompt,
-        prompt: memory
-          ? `Conversation memory:\n${memory}\n\nLatest user message:\n${cleanedMessage}`
-          : cleanedMessage,
+        messages,
         stopWhen: isStepCount(5),
         ...(department.tools.length > 0
           ? { tools: toModelTools(department), toolChoice: "auto" as const }
@@ -180,9 +170,9 @@ export class DiscordBotAgent extends Agent<Env> {
         `[LLM] Completed model request; finish reason: ${result.finishReason}`
       );
       if (result.toolCalls.length > 0) {
-        console.log("Tool calls executed:", result.toolCalls);
+        console.log(`[LLM] Tool calls executed: ${result.toolCalls.length}`);
       }
-      this.persistConversationEvents(thread.id, cleanedMessage, result);
+      this.persistStructuredConversation(thread.id, messages, result.responseMessages);
       await thread.post(result.text || "پاسخ متنی دریافت نشد.");
     } catch (error) {
       console.error("[LLM] Request failed", error);
@@ -191,58 +181,33 @@ export class DiscordBotAgent extends Agent<Env> {
     }
   }
 
-  private readConversationEvents(threadId: string): ConversationEvent[] {
-    const rows = this.sql<{
-      role: ConversationEvent["role"];
-      content: string;
-      name: string | null;
-    }>`
-      SELECT role, content, name
-      FROM conversation_events
-      WHERE thread_id = ${threadId}
-      ORDER BY sequence ASC
-    `;
-    return rows.map((row) => ({
-      role: row.role,
-      content: row.content,
-      ...(row.name ? { name: row.name } : {})
-    }));
+  private readStructuredConversation(threadId: string): StoredConversation {
+    const row = this.sql<{ messages_json: string }>`
+      SELECT messages_json FROM conversation_messages
+      WHERE thread_id = ${threadId} LIMIT 1
+    `[0];
+    if (!row) return { messages: [] };
+    try {
+      return { messages: JSON.parse(row.messages_json) as ModelMessage[] };
+    } catch (error) {
+      console.error("[Memory] Failed to parse conversation messages", error);
+      return { messages: [] };
+    }
   }
 
-  private persistConversationEvents(
+  private persistStructuredConversation(
     threadId: string,
-    userMessage: string,
-    result: Awaited<ReturnType<typeof generateText>>
+    messages: ModelMessage[],
+    responseMessages: readonly ModelMessage[]
   ): void {
-    const events: ConversationEvent[] = [
-      { role: "user", content: userMessage },
-      ...result.toolCalls.map((call) => ({
-        role: "assistant" as const,
-        content: JSON.stringify(call),
-        name: call.toolName
-      })),
-      ...result.toolResults.map((toolResult) => ({
-        role: "tool" as const,
-        content: JSON.stringify(toolResult.output) ?? String(toolResult.output),
-        name: toolResult.toolName
-      })),
-      { role: "assistant", content: result.text }
-    ];
-    const existing =
-      this.sql<{ next_sequence: number }>`
-      SELECT COALESCE(MAX(sequence), -1) + 1 AS next_sequence
-      FROM conversation_events
-      WHERE thread_id = ${threadId}
-    `[0]?.next_sequence ?? 0;
-    events.forEach((event, index) => {
-      this.sql`
-        INSERT INTO conversation_events
-          (thread_id, sequence, role, content, name, created_at)
-        VALUES
-          (${threadId}, ${existing + index}, ${event.role}, ${event.content},
-           ${event.name ?? null}, ${Date.now()})
-      `;
-    });
+    const nextMessages = [...messages, ...responseMessages].slice(-40);
+    this.sql`
+      INSERT INTO conversation_messages (thread_id, messages_json, updated_at)
+      VALUES (${threadId}, ${JSON.stringify(nextMessages)}, ${Date.now()})
+      ON CONFLICT(thread_id) DO UPDATE SET
+        messages_json = excluded.messages_json,
+        updated_at = excluded.updated_at
+    `;
   }
 
   async onRequest(request: Request): Promise<Response> {

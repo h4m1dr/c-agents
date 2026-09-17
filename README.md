@@ -31,6 +31,7 @@ Discord
 - Web search through Tavily
 - Code execution through the public Piston API
 - GitHub repository file reading through the GitHub REST API
+- GitHub file create/update commits through the GitHub Contents API
 - Durable Object SQLite memory for recent conversation and tool events
 - Discord signature verification through `DISCORD_PUBLIC_KEY`
 - Bearer-token protection for model administration endpoints
@@ -42,9 +43,9 @@ Discord
 The current implementation is a strong prototype and production foundation, but it is intentionally explicit about its boundaries:
 
 - Routing is prefix-based; model-driven supervisor routing is not enabled yet.
-- GitHub currently provides a read-file tool. Creating commits or pushing changes is not implemented yet.
+- GitHub commit automation updates a single file through the GitHub Contents API; arbitrary branch workflows are not included.
 - The AI SDK and Chat SDK manage tool execution and webhook lifecycle. A custom raw Discord `DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE` flow is not used.
-- Tool results and recent events are persisted in SQLite and reused as textual conversation memory.
+- Raw AI SDK response messages, including assistant tool calls and tool results, are persisted in SQLite and reused as structured conversation memory.
 
 ## Deploy to Cloudflare
 
