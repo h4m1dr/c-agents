@@ -10,12 +10,8 @@
     "NINE_ROUTER_ALLOWED_MODELS": "GPT"
   },
   "durable_objects": {
-    "bindings": [
-      { "name": "DiscordBotAgent", "class_name": "DiscordBotAgent" }
-    ]
+    "bindings": [{ "name": "DiscordBotAgent", "class_name": "DiscordBotAgent" }]
   },
-  "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["DiscordBotAgent"] }
-  ],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DiscordBotAgent"] }],
   "observability": { "logs": { "enabled": true } }
 }

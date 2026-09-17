@@ -1,65 +1,62 @@
 # h4m1dr Agents
 
+A Discord multi-agent assistant running on Cloudflare Workers, Durable Objects, and an OpenAI-compatible 9Router endpoint.
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hrstorage9762/agents/tree/main/examples/discord-9router-bot)
 
-**نسخه‌ی پروژه: `v0.2`**
+> This repository is a personal fork of [Cloudflare Agents](https://github.com/cloudflare/agents), focused on the deployable bot in [`examples/discord-9router-bot`](examples/discord-9router-bot).
 
-این مخزن fork شخصی [Cloudflare Agents](https://github.com/cloudflare/agents) است که برای اجرای یک بات Discord روی Cloudflare Workers و اتصال آن به API سازگار با OpenAI در 9Router آماده‌سازی شده است.
+## Overview
 
-## بات Discord و 9Router
-
-مسیر اصلی این fork در پوشه‌ی [`examples/discord-9router-bot`](examples/discord-9router-bot) قرار دارد. بات از Chat SDK، Agents SDK و Durable Object استفاده می‌کند و پاسخ‌ها را از مدل انتخاب‌شده در 9Router دریافت می‌کند.
+The bot turns Discord messages into bounded, tool-enabled agent runs. Each message is routed to a department, enriched with that department's system prompt and tools, sent through 9Router, and answered back in Discord.
 
 ```text
-Discord -> Cloudflare Worker -> Durable Object -> 9Router -> Discord
+Discord
+  -> Chat SDK webhook
+  -> Cloudflare Worker + Durable Object
+  -> Department router
+  -> 9Router / OpenAI-compatible model
+  -> Tool execution (when requested)
+  -> Discord response
 ```
 
-قابلیت‌های نسخه‌ی فعلی:
+## Features
 
-- پاسخ به منشن بات و پیام مستقیم در Discord
-- اتصال به هر endpoint سازگار با OpenAI API
-- مقدار پیش‌فرض برای `https://9r.ykno.ir/v1`
-- انتخاب مدل فعال از طریق secret یا تنظیمات پایدار Worker
-- خواندن فهرست مدل‌های موجود در Router
-- allowlist برای محدودکردن مدل‌های قابل استفاده
-- ذخیره‌ی تنظیمات مدل در SQLite Durable Object
-- احراز هویت endpointهای مدیریتی با توکن جداگانه
-- اجرای مستقیم روی Cloudflare Workers بدون سرور دائمی
+- Discord mentions and direct-message handling through the official Chat SDK adapter
+- OpenAI-compatible model routing through 9Router
+- Department prefixes: `/research`, `/devops`, and `/admin`
+- Prefix stripping before the request reaches the model
+- Research, DevOps, and Admin personas with department-specific tools
+- Bounded AI SDK tool-calling loop with a maximum of five steps
+- Web search through Tavily
+- Code execution through the public Piston API
+- GitHub repository file reading through the GitHub REST API
+- Durable Object SQLite memory for recent conversation and tool events
+- Discord signature verification through `DISCORD_PUBLIC_KEY`
+- Bearer-token protection for model administration endpoints
+- Structured Cloudflare logs for routing, model completion, and tool execution
+- No VPS or always-on server required
 
-## آنچه در v0.2 اجرا شده
+## Current Scope
 
-فاز اول معماری چندعاملی در این نسخه انجام شده است:
+The current implementation is a strong prototype and production foundation, but it is intentionally explicit about its boundaries:
 
-- ساخت پوشه‌های `src/tools`، `src/departments` و `src/router`
-- تعریف interfaceهای type-safe برای schema ابزار، ابزار اجرایی و دپارتمان
-- ایجاد Tool Registry خالی برای اضافه‌کردن ابزارهای آینده
-- ایجاد دپارتمان پیش‌فرض `General` با system prompt مستقل
-- ایجاد router پایه که فعلاً همه‌ی پیام‌ها را به `General` می‌فرستد
-- اتصال system prompt دپارتمان به درخواست مدل
-- ارسال conditional ابزارها به AI SDK فقط وقتی دپارتمان ابزار داشته باشد
-- فعال‌سازی `toolChoice: "auto"` برای دپارتمان‌های دارای ابزار
-- تشخیص ایمن `toolCalls` و ارسال پیام موقت تا زمان اجرای فاز ۵
-- ساخت ابزار Piston برای اجرای کد، GitHub برای خواندن فایل و Tavily برای جست‌وجو
-- استفاده از `fetch` بومی Workers و برگرداندن خطاهای ابزار به‌صورت متن
-- تزریق امن `Env` به registry برای دسترسی به کلیدهای GitHub و Tavily
-- ساخت دپارتمان‌های `Researcher`، `DevOps` و `Admin` با ابزارهای اختصاصی
-- routing صریح با `/research`، `/devops` و `/admin` همراه با حذف prefix از prompt
-- fallback خودکار پیام‌های بدون prefix به دپارتمان Admin
-- اجرای خودکار tool-calling با حداکثر ۵ مرحله برای جلوگیری از loop بی‌نهایت
-- برگرداندن خطای اجرای ابزار به مدل به‌صورت متن و ارسال پاسخ نهایی به Discord
-- ذخیره‌ی transcript پیام‌ها، tool callها و tool resultها در SQLite Durable Object
-- استفاده‌ی دوباره از conversation memory در پیام‌های بعدی همان thread
-- تأیید امضای Discord با `DISCORD_PUBLIC_KEY` از طریق آداپتر رسمی
-- احراز Bearer token برای endpointهای مدیریتی و لاگ ساختاریافته برای `wrangler tail`
+- Routing is prefix-based; model-driven supervisor routing is not enabled yet.
+- GitHub currently provides a read-file tool. Creating commits or pushing changes is not implemented yet.
+- The AI SDK and Chat SDK manage tool execution and webhook lifecycle. A custom raw Discord `DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE` flow is not used.
+- Tool results and recent events are persisted in SQLite and reused as textual conversation memory.
 
-در این مرحله routing بر اساس prefix انجام می‌شود؛ routing هوشمند مبتنی بر مدل و
-deferred Discord interaction سفارشی برای پاسخ‌های بسیار طولانی هنوز در فازهای
-بعدی قرار دارد. آداپتر رسمی Discord/Chat SDK lifecycle webhook و `waitUntil`
-را مدیریت می‌کند تا پردازش پس‌زمینه بعد از پاسخ اولیه ادامه پیدا کند.
+## Deploy to Cloudflare
 
-## Deploy سریع
+The button at the top of this page opens Cloudflare's deployment flow for the bot example. For a manual deployment:
 
-با زدن دکمه‌ی ابتدای README، Cloudflare صفحه‌ی ساخت Worker را باز می‌کند و پروژه‌ی بات را از همین fork می‌سازد. بعد از ساخت Worker، secretهای زیر را در Cloudflare تنظیم کنید:
+```bash
+cd examples/discord-9router-bot
+pnpm install
+pnpm run deploy
+```
+
+### Required secrets
 
 ```bash
 wrangler secret put DISCORD_BOT_TOKEN
@@ -71,7 +68,7 @@ wrangler secret put GITHUB_PAT
 wrangler secret put TAVILY_API_KEY
 ```
 
-مقدارهای اصلی:
+The non-secret model defaults live in [`wrangler.jsonc`](examples/discord-9router-bot/wrangler.jsonc):
 
 ```text
 NINE_ROUTER_BASE_URL=https://9r.ykno.ir/v1
@@ -79,31 +76,27 @@ NINE_ROUTER_MODEL=GPT
 NINE_ROUTER_ALLOWED_MODELS=GPT
 ```
 
-این سه مقدار غیرحساس در `wrangler.jsonc` تعریف شده‌اند؛ کلیدها و tokenها فقط
-با `wrangler secret put` تنظیم شوند.
+Never commit API keys, bot tokens, or personal access tokens.
 
-کلیدها و توکن‌های واقعی نباید داخل Git، README یا فایل‌های `.env` commit شوند. برای توسعه‌ی محلی از `.dev.vars` استفاده کنید.
+## Discord Setup
 
-## تنظیم Discord
+1. Create an application and bot in the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Copy the bot token, application ID, and public key into Cloudflare secrets.
+3. Set the Interactions Endpoint URL to:
 
-در [Discord Developer Portal](https://discord.com/developers/applications):
+   ```text
+   https://YOUR_WORKER_DOMAIN/api/webhooks/discord
+   ```
 
-1. یک Application و Bot بسازید.
-2. `DISCORD_BOT_TOKEN`، `DISCORD_PUBLIC_KEY` و `DISCORD_APPLICATION_ID` را بردارید.
-3. آدرس Interactions Endpoint را روی این مسیر بگذارید:
+4. Invite the bot with the `bot` and `applications.commands` scopes.
+5. Enable Message Content Intent if the bot must receive ordinary channel messages.
+6. Mention the bot or send it a direct message.
 
-```text
-https://YOUR_WORKER_DOMAIN/api/webhooks/discord
-```
+The adapter validates Discord request signatures before dispatching events to the bot handlers.
 
-4. بات را با scopeهای `bot` و `applications.commands` به سرور دعوت کنید.
-5. بات را mention کنید یا مستقیماً برایش پیام بفرستید.
+## Model Administration
 
-برای دریافت پیام‌های عادی در کانال‌ها، تنظیمات لازم Discord مانند Message Content Intent را در Developer Portal فعال کنید. مسیر HTTP Interaction برای درخواست‌های Discord مناسب است؛ Worker به سرور دائمی یا VPS نیاز ندارد.
-
-## مدیریت مدل‌ها
-
-پس از deploy، فهرست مدل‌ها را با توکن مدیریتی ببینید:
+List the models exposed by the configured Router:
 
 ```bash
 curl \
@@ -111,7 +104,7 @@ curl \
   https://YOUR_WORKER_DOMAIN/api/models
 ```
 
-برای انتخاب مدل و حذف مدل‌های غیرمجاز:
+Change the active model and allowlist:
 
 ```bash
 curl -X POST https://YOUR_WORKER_DOMAIN/api/models/config \
@@ -120,9 +113,19 @@ curl -X POST https://YOUR_WORKER_DOMAIN/api/models/config \
   -d '{"model":"GPT","allowedModels":["GPT","Qwen-3.7"]}'
 ```
 
-مدل فعال باید حتماً داخل `allowedModels` باشد. تنظیمات در Durable Object ذخیره می‌شوند و با restart شدن Worker از بین نمی‌روند.
+The active model must be included in `allowedModels`.
 
-## توسعه‌ی محلی
+## Department Commands
+
+```text
+/research summarize the latest Workers Durable Objects guidance
+/devops inspect the repository structure
+/admin run the best available tool for this request
+```
+
+Messages without a prefix use the Admin department. Tool execution is bounded to five AI SDK steps to prevent runaway loops.
+
+## Local Development
 
 ```bash
 cd examples/discord-9router-bot
@@ -131,60 +134,40 @@ cp .env.example .dev.vars
 pnpm run dev
 ```
 
-Discord به HTTPS عمومی نیاز دارد. برای تست محلی می‌توانید از Cloudflare Quick Tunnel استفاده کنید و URL عمومی آن را در Discord Developer Portal بگذارید.
+Discord requires a public HTTPS endpoint. Use a Cloudflare Quick Tunnel during local development and configure its URL in the Discord Developer Portal.
 
-برای deploy دستی:
+View deployed logs with:
 
 ```bash
-cd examples/discord-9router-bot
-pnpm run deploy
+wrangler tail discord-9router-bot
 ```
 
-## وضعیت پلن رایگان Cloudflare
+## Project Structure
 
-### نتیجه‌ی بررسی
+```text
+examples/discord-9router-bot/
+├── src/
+│   ├── departments/       # Researcher, DevOps, and Admin personas
+│   ├── router/            # Prefix-based department selection
+│   ├── tools/             # Tool schemas and Workers fetch implementations
+│   ├── types.ts           # Shared tool and department contracts
+│   └── index.ts            # Worker entrypoint, Durable Object, and memory
+├── .env.example           # Local variable template without real secrets
+├── wrangler.jsonc         # Worker, Durable Object, SQLite, and vars config
+└── README.md              # Bot-specific setup guide
+```
 
-این پروژه از نظر معماری برای شروع روی پلن رایگان مناسب است: Worker سرور دائمی ندارد، از سرویس خارجی 9Router برای inference استفاده می‌کند، و فایل یا دیتابیس جداگانه‌ای خارج از Durable Object لازم ندارد.
+## Free-Tier Notes
 
-با این حال رایگان‌بودن Cloudflare به معنی رایگان‌بودن 9Router یا Discord API نیست. مصرف مدل‌ها، محدودیت‌های Router، و quotaهای Discord جداگانه حساب می‌شوند.
+The Worker does not require a VPS and is suitable for personal, low-volume use on a Cloudflare account where Durable Objects with SQLite are available. Cloudflare limits, Discord limits, and 9Router/model quotas are separate. Tavily and public Piston also have their own availability and rate limits.
 
-مواردی که باید در داشبورد حساب خود بررسی کنید:
+## Security
 
-- فعال‌بودن Durable Objects و SQLite برای حساب Cloudflare
-- سقف درخواست‌های روزانه‌ی Workers و Durable Objects در پلن فعلی
-- محدودیت زمان اجرای درخواست و حجم پاسخ Discord
-- فعال‌بودن دامنه یا `workers.dev` برای webhook HTTPS
-- quota و هزینه‌ی مدل‌های انتخاب‌شده در 9Router
+- Rotate any 9Router token that has ever been exposed.
+- Store credentials with `wrangler secret put`; do not place them in `vars` or source files.
+- Keep the admin token private and send it only in the `Authorization` header.
+- Use `wrangler tail` carefully and avoid logging sensitive prompts or tool arguments.
 
-### جمع‌بندی عملی
+## License and Upstream
 
-- برای تست شخصی و تعداد پیام کم: بله، این Worker می‌تواند روی پلن رایگان اجرا شود، مشروط به فعال‌بودن Durable Objects در حساب شما.
-- برای استفاده‌ی سنگین، چند سرور Discord یا پاسخ‌های طولانی: quotaها را باید جداگانه پایش کرد و ممکن است پلن Paid یا تنظیمات بیشتر لازم شود.
-- هزینه‌ی اصلی این پروژه در Cloudflare فقط یکی از عوامل نیست؛ API مدل در 9Router معمولاً عامل تعیین‌کننده‌ی هزینه است.
-
-## ساختار پروژه
-
-| مسیر                                                                                           | کاربرد                                  |
-| ---------------------------------------------------------------------------------------------- | --------------------------------------- |
-| [`examples/discord-9router-bot`](examples/discord-9router-bot)                                 | Worker اصلی بات Discord و 9Router       |
-| [`examples/discord-9router-bot/src/index.ts`](examples/discord-9router-bot/src/index.ts)       | webhook، Durable Object و مدیریت مدل    |
-| [`examples/discord-9router-bot/wrangler.jsonc`](examples/discord-9router-bot/wrangler.jsonc)   | تنظیمات deploy و migration SQLite       |
-| [`examples/discord-9router-bot/.env.example`](examples/discord-9router-bot/.env.example)       | نمونه‌ی متغیرهای محلی بدون secret واقعی |
-| [`packages/agents`](packages/agents)                                                           | هسته‌ی Agents SDK مورد استفاده‌ی Worker |
-| [`packages/think`](packages/think)                                                             | لایه‌ی Think و messenger state          |
-| [`examples/discord-9router-bot/src/types.ts`](examples/discord-9router-bot/src/types.ts)       | قراردادهای type-safe فاز چندعاملی       |
-| [`examples/discord-9router-bot/src/tools`](examples/discord-9router-bot/src/tools)             | registry ابزارها                        |
-| [`examples/discord-9router-bot/src/departments`](examples/discord-9router-bot/src/departments) | دپارتمان‌ها و personaها                 |
-| [`examples/discord-9router-bot/src/router`](examples/discord-9router-bot/src/router)           | مسیریاب پایه‌ی پیام‌ها                  |
-
-## امنیت
-
-- توکن 9Router که قبلاً در گفتگو منتشر شده باید revoke و rotate شود.
-- `NINE_ROUTER_API_KEY` و `NINE_ROUTER_ADMIN_TOKEN` فقط به‌صورت secret تنظیم شوند.
-- `GITHUB_PAT` و `TAVILY_API_KEY` فقط در صورت نیاز به ابزارهای مربوطه تنظیم شوند.
-- endpointهای `/api/models` و `/api/models/config` بدون توکن مدیریتی پاسخ نمی‌دهند.
-- توکن مدیریتی را در URL قرار ندهید؛ فقط از header `Authorization` استفاده کنید.
-
-## منبع اصلی
-
-این پروژه بر پایه‌ی [cloudflare/agents](https://github.com/cloudflare/agents) ساخته شده، اما تنظیمات و مسیر اجرایی بات Discord، اتصال 9Router و مستندات این fork برای استفاده‌ی شخصی h4m1dr سفارشی شده‌اند.
+This fork follows the licensing and upstream project context of [cloudflare/agents](https://github.com/cloudflare/agents). The custom bot implementation and documentation are maintained for the h4m1dr deployment.
