@@ -5,7 +5,9 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite dev",
+    "setup:secrets": "node scripts/setup-secrets.mjs",
     "deploy": "vite build && wrangler deploy",
+    "deploy:guided": "pnpm run setup:secrets && pnpm run deploy",
     "typecheck": "tsc --noEmit",
     "types": "wrangler types env.d.ts --include-runtime false"
   },
