@@ -92,7 +92,8 @@ export function githubCommitTool(env: Env): AgentTool {
       type: "function",
       function: {
         name: "create_github_commit",
-        description: "Creates or updates a file in a GitHub repository with a new commit.",
+        description:
+          "Creates or updates a file in a GitHub repository with a new commit.",
         parameters: {
           type: "object",
           properties: {
@@ -121,19 +122,26 @@ export function githubCommitTool(env: Env): AgentTool {
 
         const encodedPath = path.split("/").map(encodeURIComponent).join("/");
         const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}`;
-        const existingResponse = await fetch(url, { headers: githubHeaders(env) });
+        const existingResponse = await fetch(url, {
+          headers: githubHeaders(env)
+        });
         let sha: string | undefined;
         if (existingResponse.ok) {
-          const existing = (await existingResponse.json()) as GitHubContentResponse;
+          const existing =
+            (await existingResponse.json()) as GitHubContentResponse;
           sha = existing.sha;
         } else if (existingResponse.status !== 404) {
-          const existing = (await existingResponse.json()) as GitHubContentResponse;
+          const existing =
+            (await existingResponse.json()) as GitHubContentResponse;
           return `Error checking GitHub file: ${existing.message ?? existingResponse.statusText}`;
         }
 
         const response = await fetch(url, {
           method: "PUT",
-          headers: { ...githubHeaders(env), "content-type": "application/json" },
+          headers: {
+            ...githubHeaders(env),
+            "content-type": "application/json"
+          },
           body: JSON.stringify({
             message: commitMessage,
             content: encodeBase64Utf8(content),

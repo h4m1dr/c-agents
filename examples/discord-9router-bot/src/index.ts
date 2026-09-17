@@ -172,7 +172,11 @@ export class DiscordBotAgent extends Agent<Env> {
       if (result.toolCalls.length > 0) {
         console.log(`[LLM] Tool calls executed: ${result.toolCalls.length}`);
       }
-      this.persistStructuredConversation(thread.id, messages, result.responseMessages);
+      this.persistStructuredConversation(
+        thread.id,
+        messages,
+        result.responseMessages
+      );
       await thread.post(result.text || "پاسخ متنی دریافت نشد.");
     } catch (error) {
       console.error("[LLM] Request failed", error);
